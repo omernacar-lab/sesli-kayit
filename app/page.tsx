@@ -47,6 +47,10 @@ export default function Home() {
   const [ilanTranscription, setIlanTranscription] = useState("");
   const [ilanEditingField, setIlanEditingField] = useState<string | null>(null);
 
+  // Post-save ilan flow
+  const [showIlanPrompt, setShowIlanPrompt] = useState(false);
+  const [savedTranscription, setSavedTranscription] = useState("");
+
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<Blob[]>([]);
   const timerRef = useRef<any>(null);
@@ -98,7 +102,7 @@ export default function Home() {
     setIsRecording(false);
   };
 
-  // ──────── SES → METİN (Whisper) ────────
+  // ──────── API CALLS ────────
   const transcribeAudio = async (blob: Blob): Promise<string> => {
     const formData = new FormData();
     formData.append("audio", blob, "recording.webm");
@@ -108,7 +112,6 @@ export default function Home() {
     return data.text;
   };
 
-  // ──────── METİN → JSON (Müşteri) ────────
   const parseText = async (text: string) => {
     const res = await fetch("/api/parse", {
       method: "POST",
@@ -120,7 +123,6 @@ export default function Home() {
     return data;
   };
 
-  // ──────── METİN → JSON (İlan) ────────
   const parseIlanText = async (text: string) => {
     const res = await fetch("/api/parse-ilan", {
       method: "POST",
@@ -132,7 +134,6 @@ export default function Home() {
     return data;
   };
 
-  // ──────── İLAN JPEG OLUŞTUR ────────
   const generateIlanImage = async (data: any) => {
     const res = await fetch("/api/ilan", {
       method: "POST",
@@ -144,7 +145,6 @@ export default function Home() {
     return URL.createObjectURL(blob);
   };
 
-  // ──────── JSON → SHEETS ────────
   const saveToSheets = async (data: any) => {
     const res = await fetch("/api/sheets", {
       method: "POST",
@@ -198,8 +198,10 @@ export default function Home() {
       const record = { ...parsedData, tarih: new Date().toLocaleDateString("tr-TR"), id: Date.now() };
       setSavedRecords((prev) => [record, ...prev]);
       showToast("Google Sheets'e kaydedildi! ✓");
-      resetState();
-      setScreen("home");
+      // Transkripsiyon'u sakla, ilan için lazım olacak
+      setSavedTranscription(transcription);
+      setShowIlanPrompt(true);
+      setScreen("ilan-prompt");
     } catch (err: any) {
       showToast(`Sheets hatası: ${err.message}`, "error");
     }
@@ -207,7 +209,32 @@ export default function Home() {
     setProcessingStep("");
   };
 
-  // ──────── İLAN AKIŞI ────────
+  // ──────── POST-SAVE İLAN AKIŞI ────────
+  const generateIlanFromSaved = async () => {
+    setIsProcessing(true);
+    try {
+      setProcessingStep("🤖 İlan bilgileri ayrıştırılıyor...");
+      const parsed = await parseIlanText(savedTranscription);
+      setIlanData(parsed);
+      setProcessingStep("🎨 Görsel oluşturuluyor...");
+      const url = await generateIlanImage(parsed);
+      setIlanImageUrl(url);
+      setScreen("ilan-review");
+    } catch (err: any) {
+      showToast(`Hata: ${err.message}`, "error");
+    }
+    setIsProcessing(false);
+    setProcessingStep("");
+  };
+
+  const skipIlan = () => {
+    resetState();
+    setSavedTranscription("");
+    setShowIlanPrompt(false);
+    setScreen("home");
+  };
+
+  // ──────── STANDALONE İLAN AKIŞI ────────
   const processIlanAudio = async () => {
     if (!audioBlob) return;
     setIsProcessing(true);
@@ -302,6 +329,13 @@ export default function Home() {
     setRecordingTime(0);
   };
 
+  const resetAll = () => {
+    resetState();
+    resetIlanState();
+    setSavedTranscription("");
+    setShowIlanPrompt(false);
+  };
+
   const formatTime = (s: number) =>
     `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 
@@ -317,11 +351,11 @@ export default function Home() {
     fontFamily: "'Nunito', sans-serif", color: th.text, maxWidth: 480, margin: "0 auto",
     position: "relative", paddingBottom: 72,
   };
-  const header: React.CSSProperties = {
+  const headerS: React.CSSProperties = {
     padding: "20px 24px 16px", background: `linear-gradient(135deg, ${th.primary} 0%, ${th.primaryDark} 100%)`,
     color: "white", borderRadius: "0 0 24px 24px", boxShadow: "0 4px 20px rgba(193,126,74,0.3)",
   };
-  const card: React.CSSProperties = {
+  const cardS: React.CSSProperties = {
     background: th.card, borderRadius: 16, padding: 20, margin: "12px 16px",
     boxShadow: "0 2px 12px rgba(0,0,0,0.06)", border: `1px solid ${th.border}`,
   };
@@ -336,9 +370,9 @@ export default function Home() {
     background: th.inputBg, fontSize: 14, fontFamily: "inherit", color: th.text, outline: "none", boxSizing: "border-box",
   };
 
-  // ──────── KAYIT BUTONU (SHARED) ────────
+  // ──────── RECORD BUTTON ────────
   const renderRecordButton = () => (
-    <div style={{ ...card, textAlign: "center", padding: 32 }}>
+    <div style={{ ...cardS, textAlign: "center", padding: 32 }}>
       <div onClick={isRecording ? stopRecording : startRecording} style={{
         width: 120, height: 120, borderRadius: "50%", margin: "0 auto 20px",
         background: isRecording
@@ -383,7 +417,7 @@ export default function Home() {
   // ──────── MÜŞTERİ HOME ────────
   const renderMusteriHome = () => (
     <div>
-      <div style={header}>
+      <div style={headerS}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
             <div style={{ fontSize: 22, fontWeight: 800 }}>Müşteri Kayıt</div>
@@ -414,7 +448,7 @@ export default function Home() {
       )}
 
       {!audioBlob && (
-        <div style={card}>
+        <div style={cardS}>
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>⌨️ Yazarak Gir</div>
           <textarea value={transcription} onChange={(e) => setTranscription(e.target.value)}
             placeholder="Esra Güler aradı, İstanbul'dan, Instagram'dan bulmuş. Bakıcı ve temizlik istiyor, bütçesi 33 bin..."
@@ -427,7 +461,7 @@ export default function Home() {
       )}
 
       {savedRecords.length > 0 && (
-        <div style={card}>
+        <div style={cardS}>
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Son Kayıtlar</div>
           {savedRecords.slice(0, 3).map((r, i) => (
             <div key={r.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: i < 2 ? `1px solid ${th.border}` : "none" }}>
@@ -447,10 +481,10 @@ export default function Home() {
     </div>
   );
 
-  // ──────── İLAN HOME ────────
+  // ──────── İLAN HOME (standalone) ────────
   const renderIlanHome = () => (
     <div>
-      <div style={header}>
+      <div style={headerS}>
         <div>
           <div style={{ fontSize: 22, fontWeight: 800 }}>İlan Oluştur</div>
           <div style={{ fontSize: 13, opacity: 0.85 }}>Sesle anlat → JPEG ilan oluştur</div>
@@ -469,7 +503,7 @@ export default function Home() {
       )}
 
       {!audioBlob && (
-        <div style={card}>
+        <div style={cardS}>
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>⌨️ Yazarak Gir</div>
           <textarea value={ilanTranscription} onChange={(e) => setIlanTranscription(e.target.value)}
             placeholder="Sapanca Sakarya'da, 9 aylık bebek bakımı, günde 15 dakika köpek gezdirme ve ev temizliği. 33.000TL + 300TL."
@@ -480,22 +514,13 @@ export default function Home() {
           </button>
         </div>
       )}
-
-      {/* Örnek İlan */}
-      <div style={card}>
-        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>💡 Örnek Kullanım</div>
-        <div style={{ fontSize: 13, color: th.textLight, lineHeight: 1.6 }}>
-          Sesle veya yazarak ilan bilgilerini gir. Örneğin: "Sapanca Sakarya'da 9 aylık bebeğe bakıcı arıyoruz,
-          günde 15 dakika köpek gezdirmesi ve temizlik yapması lazım. Maaş 33 bin artı 300 lira."
-        </div>
-      </div>
     </div>
   );
 
   // ──────── MÜŞTERİ REVIEW ────────
   const renderReview = () => (
     <div>
-      <div style={header}>
+      <div style={headerS}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div onClick={() => setScreen("home")} style={{ cursor: "pointer", fontSize: 20 }}>←</div>
           <div>
@@ -505,12 +530,12 @@ export default function Home() {
         </div>
       </div>
       {transcription && (
-        <div style={{ ...card, background: th.inputBg }}>
+        <div style={{ ...cardS, background: th.inputBg }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: th.textLight, marginBottom: 6 }}>TRANSKRİPSİYON</div>
           <div style={{ fontSize: 13, lineHeight: 1.5, fontStyle: "italic", color: th.textLight }}>"{transcription}"</div>
         </div>
       )}
-      <div style={card}>
+      <div style={cardS}>
         {SHEET_COLUMNS.map((col) => {
           const value = parsedData?.[col.key] || "";
           const isEditing = editingField === col.key;
@@ -551,12 +576,44 @@ export default function Home() {
     </div>
   );
 
+  // ──────── İLAN PROMPT (Post-save) ────────
+  const renderIlanPrompt = () => (
+    <div>
+      <div style={headerS}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ fontSize: 20 }}>✅</div>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 800 }}>Kayıt Başarılı!</div>
+            <div style={{ fontSize: 13, opacity: 0.85 }}>Google Sheets'e eklendi</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ ...cardS, textAlign: "center", padding: 32 }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>📸</div>
+        <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 8 }}>İlan Görseli Oluştur?</div>
+        <div style={{ fontSize: 14, color: th.textLight, lineHeight: 1.6 }}>
+          Az önce kaydettiğin bilgilerden otomatik bir ilan görseli (JPEG) oluşturabilirim. Tekrar ses kaydı yapmana gerek yok!
+        </div>
+      </div>
+
+      <div style={{ padding: "0 16px" }}>
+        <button onClick={generateIlanFromSaved} disabled={isProcessing} style={{ ...btnP, opacity: isProcessing ? 0.6 : 1 }}>
+          {isProcessing ? `⏳ ${processingStep}` : "🎨 Evet, İlan Oluştur"}
+        </button>
+        <button onClick={skipIlan} style={{ ...btnS, marginTop: 8 }}>
+          Hayır, Ana Sayfaya Dön
+        </button>
+      </div>
+    </div>
+  );
+
   // ──────── İLAN REVIEW ────────
   const renderIlanReview = () => (
     <div>
-      <div style={header}>
+      <div style={headerS}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div onClick={() => { resetIlanState(); setScreen("home"); }} style={{ cursor: "pointer", fontSize: 20 }}>←</div>
+          <div onClick={() => { resetIlanState(); resetAll(); setScreen("home"); }} style={{ cursor: "pointer", fontSize: 20 }}>←</div>
           <div>
             <div style={{ fontSize: 20, fontWeight: 800 }}>İlan Önizleme</div>
             <div style={{ fontSize: 13, opacity: 0.85 }}>Düzenle, yeniden oluştur, paylaş</div>
@@ -564,15 +621,13 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Görsel Önizleme */}
       {ilanImageUrl && (
-        <div style={{ ...card, padding: 12 }}>
+        <div style={{ ...cardS, padding: 12 }}>
           <img src={ilanImageUrl} alt="İlan" style={{ width: "100%", borderRadius: 12 }} />
         </div>
       )}
 
-      {/* Düzenlenebilir Alanlar */}
-      <div style={card}>
+      <div style={cardS}>
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>✏️ Bilgileri Düzenle</div>
         {ILAN_FIELDS.map((field) => {
           const value = ilanData?.[field.key] || "";
@@ -602,11 +657,10 @@ export default function Home() {
         </button>
       </div>
 
-      {/* Paylaş / İndir */}
       <div style={{ padding: "0 16px 32px" }}>
         <button onClick={shareIlan} style={btnP}>📤 Paylaş</button>
         <button onClick={downloadIlan} style={{ ...btnS, marginTop: 8 }}>💾 İndir</button>
-        <button onClick={() => { resetIlanState(); setScreen("home"); }} style={{ ...btnS, marginTop: 8 }}>Yeni İlan</button>
+        <button onClick={() => { resetAll(); setScreen("home"); }} style={{ ...btnS, marginTop: 8 }}>🏠 Ana Sayfa</button>
       </div>
     </div>
   );
@@ -614,7 +668,7 @@ export default function Home() {
   // ──────── HISTORY ────────
   const renderHistory = () => (
     <div>
-      <div style={header}>
+      <div style={headerS}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div onClick={() => setScreen("home")} style={{ cursor: "pointer", fontSize: 20 }}>←</div>
           <div>
@@ -624,13 +678,13 @@ export default function Home() {
         </div>
       </div>
       {savedRecords.length === 0 ? (
-        <div style={{ ...card, textAlign: "center", padding: 40 }}>
+        <div style={{ ...cardS, textAlign: "center", padding: 40 }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
           <div style={{ fontSize: 15, fontWeight: 600 }}>Henüz kayıt yok</div>
         </div>
       ) : (
         savedRecords.map((r) => (
-          <div key={r.id} style={card}>
+          <div key={r.id} style={cardS}>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <div>
                 <div style={{ fontSize: 16, fontWeight: 700 }}>{r.adSoyad || "İsimsiz"}</div>
@@ -654,7 +708,7 @@ export default function Home() {
     </div>
   );
 
-  // ──────── BOTTOM TAB BAR ────────
+  // ──────── TAB BAR ────────
   const renderTabBar = () => (
     <div style={{
       position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)",
@@ -665,7 +719,6 @@ export default function Home() {
         flex: 1, padding: "12px 0", textAlign: "center", cursor: "pointer",
         color: tab === "musteri" ? th.primary : th.textLight,
         borderTop: tab === "musteri" ? `3px solid ${th.primary}` : "3px solid transparent",
-        transition: "all 0.2s",
       }}>
         <div style={{ fontSize: 20 }}>👥</div>
         <div style={{ fontSize: 11, fontWeight: 700, marginTop: 2 }}>Müşteri Kayıt</div>
@@ -674,7 +727,6 @@ export default function Home() {
         flex: 1, padding: "12px 0", textAlign: "center", cursor: "pointer",
         color: tab === "ilan" ? th.primary : th.textLight,
         borderTop: tab === "ilan" ? `3px solid ${th.primary}` : "3px solid transparent",
-        transition: "all 0.2s",
       }}>
         <div style={{ fontSize: 20 }}>📢</div>
         <div style={{ fontSize: 11, fontWeight: 700, marginTop: 2 }}>İlan Oluştur</div>
@@ -687,6 +739,7 @@ export default function Home() {
       {screen === "home" && tab === "musteri" && renderMusteriHome()}
       {screen === "home" && tab === "ilan" && renderIlanHome()}
       {screen === "review" && renderReview()}
+      {screen === "ilan-prompt" && renderIlanPrompt()}
       {screen === "ilan-review" && renderIlanReview()}
       {screen === "history" && renderHistory()}
 
