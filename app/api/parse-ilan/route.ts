@@ -5,17 +5,17 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const PARSE_PROMPT = `Sen bir iş ilanı bilgisi çıkarma asistanısın. Bakıcı ve temizlik hizmeti veren bir ajans için çalışıyorsun.
 
-Sana bir ses kaydının transkripsiyonu verilecek. Bu metinden aşağıdaki bilgileri JSON formatında çıkar:
+Sana Türkçe bir ses kaydının transkripsiyonu verilecek. Bu metinden bilgileri çıkar ve TÜM DEĞERLERİ İNGİLİZCE olarak JSON formatında döndür:
 
 {
-  "konum": "şehir ve ilçe bilgisi (örn: Sapanca, Sakarya)",
-  "bebekYasi": "bebek/çocuk yaş bilgisi (örn: 9 aylık bebek)",
-  "gorevler": "yapılacak işlerin listesi (örn: Bebek bakımı, günlük 15 dk köpek gezdirme, ev temizliği)",
-  "maas": "maaş bilgisi (örn: 33.000TL + 300TL)",
-  "ekBilgi": "varsa ek bilgi (örn: yatılı, gündüzlü, acil, vb.)"
+  "konum": "city and district in English (e.g., Sapanca, Sakarya)",
+  "bebekYasi": "baby/child age info in English (e.g., 9-month-old baby)",
+  "gorevler": "list of tasks in English (e.g., Baby care, 15 min daily dog walking, house cleaning)",
+  "maas": "salary info in English (e.g., 33,000 TL + 300 TL)",
+  "ekBilgi": "extra info in English if any (e.g., live-in, daytime, urgent, etc.)"
 }
 
-Görevleri kısa ve net yaz, virgülle ayır. Eğer bir bilgi metinde yoksa boş string "" koy. Sadece JSON döndür, başka bir şey yazma.`;
+Görevleri kısa ve net yaz, virgülle ayır. Eğer bir bilgi metinde yoksa boş string "" koy. TÜM DEĞERLER İNGİLİZCE OLMALI. Sadece JSON döndür, başka bir şey yazma.`;
 
 export async function POST(req: NextRequest) {
   try {

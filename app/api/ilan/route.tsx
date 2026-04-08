@@ -9,11 +9,11 @@ export async function POST(req: NextRequest) {
 
     // Ana metin oluştur
     const lines: string[] = [];
-    if (konum) lines.push(`📍 ${konum}`);
-    if (bebekYasi) lines.push(`👶 ${bebekYasi}`);
-    if (gorevler) lines.push(`✅ ${gorevler}`);
-    if (maas) lines.push(`💰 ${maas}`);
-    if (ekBilgi) lines.push(`ℹ️ ${ekBilgi}`);
+    if (konum) lines.push(`📍 Location: ${konum}`);
+    if (bebekYasi) lines.push(`👶 Child: ${bebekYasi}`);
+    if (gorevler) lines.push(`✅ Duties: ${gorevler}`);
+    if (maas) lines.push(`💰 Salary: ${maas}`);
+    if (ekBilgi) lines.push(`ℹ️ Notes: ${ekBilgi}`);
 
     const image = new ImageResponse(
       (
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
             }}
           >
             <span style={{ fontSize: 28, color: "white", fontWeight: 700 }}>
-              🏠 Bakıcı & Temizlik Hizmeti
+              🏠 Nanny & Cleaning Services
             </span>
           </div>
 
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
               width: "80%",
             }}
           >
-            📞 İletişim için DM gönderin
+            📞 Send a DM to get in touch
           </div>
         </div>
       ),
