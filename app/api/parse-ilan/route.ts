@@ -3,24 +3,19 @@ import OpenAI from "openai";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const PARSE_PROMPT = `Sen bir CRM bilgi çıkarma asistanısın. Bakıcı/temizlik hizmeti veren bir ajansın müşteri görüşmelerini kaydediyorsun.
+const PARSE_PROMPT = `Sen bir iş ilanı bilgisi çıkarma asistanısın. Bakıcı ve temizlik hizmeti veren bir ajans için çalışıyorsun.
 
 Sana bir ses kaydının transkripsiyonu verilecek. Bu metinden aşağıdaki bilgileri JSON formatında çıkar:
 
 {
-  "adSoyad": "müşterinin adı soyadı",
-  "telefon": "telefon numarası",
-  "sehir": "şehir / ilçe",
-  "kaynak": "müşterinin nereden ulaştığı (Instagram, Google, Tavsiye, vb.)",
-  "talepTuru": "talep edilen hizmet (Bebek bakıcısı, Yaşlı bakıcısı, Temizlik, vb.)",
-  "butce": "müşterinin bütçesi (örn: 30.000 TL)",
-  "durum": "İlk Görüşme | Anlaşıldı | Denemede | Beklemede | İptal değerlerinden biri",
-  "sonGorusme": "son görüşmenin kısa özeti",
-  "sonrakiAksiyon": "yapılacak bir sonraki adım",
-  "notlar": "varsa ek notlar"
+  "konum": "şehir ve ilçe bilgisi (örn: Sapanca, Sakarya)",
+  "bebekYasi": "bebek/çocuk yaş bilgisi (örn: 9 aylık bebek)",
+  "gorevler": "yapılacak işlerin listesi (örn: Bebek bakımı, günlük 15 dk köpek gezdirme, ev temizliği)",
+  "maas": "maaş bilgisi (örn: 33.000TL + 300TL)",
+  "ekBilgi": "varsa ek bilgi (örn: yatılı, gündüzlü, acil, vb.)"
 }
 
-Eğer bir bilgi metinde yoksa boş string "" koy. Sadece JSON döndür, başka bir şey yazma.`;
+Görevleri kısa ve net yaz, virgülle ayır. Eğer bir bilgi metinde yoksa boş string "" koy. Sadece JSON döndür, başka bir şey yazma.`;
 
 export async function POST(req: NextRequest) {
   try {
@@ -41,7 +36,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(parsed);
   } catch (error: any) {
-    console.error("Parse hatası:", error);
+    console.error("İlan parse hatası:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
