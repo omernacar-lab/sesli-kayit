@@ -36,9 +36,20 @@ export async function POST(req: NextRequest) {
       data.notlar || "",
     ];
 
-    await sheets.spreadsheets.values.append({
+    // Önce kaç satır dolu, onu öğren (B = Tarih sütunu hariç A = Müşteri Kodu boş olabilir,
+    // bu yüzden A:L tüm aralığa bakıp en uzun sütunu alıyoruz)
+    const current = await sheets.spreadsheets.values.get({
       spreadsheetId: process.env.GOOGLE_SHEET_ID,
       range: "müşteri Takip!A:L",
+    });
+    const lastRow = current.data.values?.length || 1;
+    const nextRow = lastRow + 1;
+
+    // Hedef satıra direkt yaz, böylece Google Sheets Table (Tablo1) sınırı
+    // bizi aynı satıra yönlendirip üstüne yazma sorunu yaşamayız
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: process.env.GOOGLE_SHEET_ID,
+      range: `müşteri Takip!A${nextRow}:L${nextRow}`,
       valueInputOption: "USER_ENTERED",
       requestBody: {
         values: [row],
